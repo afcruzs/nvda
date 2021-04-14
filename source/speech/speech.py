@@ -6,7 +6,8 @@
 # Julien Cochuyt
 
 """High-level functions to speak information.
-""" 
+"""
+# flake8: noqa ignore lint for mass refactor in (#12251), to be fixed with follow up PR
 
 import itertools
 import weakref
@@ -17,8 +18,7 @@ import api
 import controlTypes
 from controlTypes import OutputReason
 import tones
-import synthDriverHandler
-from synthDriverHandler import getSynth, setSynth
+from synthDriverHandler import getSynth
 import re
 import textInfos
 import speechDictHandler
@@ -50,13 +50,13 @@ from typing import (
 	Any,
 	Generator,
 	Union,
-	Callable,
 	Tuple,
 )
 from logHandler import log
 import config
 import aria
 from .priorities import Spri
+
 
 speechMode_off=0
 speechMode_beeps=1
@@ -83,15 +83,6 @@ oldRowSpan=None
 oldColumnNumber=None
 oldColumnSpan=None
 
-def initialize():
-	"""Loads and sets the synth driver configured in nvda.ini."""
-	synthDriverHandler.initialize()
-	setSynth(config.conf["speech"]["synth"])
-
-def terminate():
-	synthDriverHandler.setSynth(None)
-	speechViewerObj=None
-
 #: If a chunk of text contains only these characters, it will be considered blank.
 BLANK_CHUNK_CHARS = frozenset((" ", "\n", "\r", "\0", u"\xa0"))
 def isBlank(text):
@@ -115,9 +106,8 @@ def cancelSpeech():
 	"""Interupts the synthesizer from currently speaking"""
 	global beenCanceled, isPaused
 	# Import only for this function to avoid circular import.
-	import sayAllHandler
-	sayAllHandler.stop()
-	sayAllHandler.getSpeechWithoutPauses().reset()
+	from speech import sayAll
+	sayAll.SayAllHandler.stop()
 	if beenCanceled:
 		return
 	elif speechMode==speechMode_off:
@@ -215,9 +205,9 @@ def speakSpelling(
 # Note: when working on getSpellingSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getSpellingSpeech(  # noqa: C901
-		text: str,
-		locale: Optional[str] = None,
-		useCharacterDescriptions: bool = False
+								text: str,
+								locale: Optional[str] = None,
+								useCharacterDescriptions: bool = False
 ) -> Generator[SequenceItemT, None, None]:
 	defaultLanguage=getCurrentLanguage()
 	if not locale or (not config.conf['speech']['autoDialectSwitching'] and locale.split('_')[0]==defaultLanguage.split('_')[0]):
@@ -299,11 +289,11 @@ def getCharDescListFromText(text,locale):
 
 
 def speakObjectProperties(  # noqa: C901
-		obj,
-		reason: OutputReason = OutputReason.QUERY,
-		_prefixSpeechCommand: Optional[SpeechCommand] = None,
-		priority: Optional[Spri] = None,
-		**allowedProperties
+								obj,
+								reason: OutputReason = OutputReason.QUERY,
+								_prefixSpeechCommand: Optional[SpeechCommand] = None,
+								priority: Optional[Spri] = None,
+								**allowedProperties
 ):
 	speechSequence = getObjectPropertiesSpeech(
 		obj,
@@ -319,10 +309,10 @@ def speakObjectProperties(  # noqa: C901
 # Note: when working on getObjectPropertiesSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getObjectPropertiesSpeech(  # noqa: C901
-		obj,
-		reason: OutputReason = OutputReason.QUERY,
-		_prefixSpeechCommand: Optional[SpeechCommand] = None,
-		**allowedProperties
+								obj,
+								reason: OutputReason = OutputReason.QUERY,
+								_prefixSpeechCommand: Optional[SpeechCommand] = None,
+								**allowedProperties
 ) -> SpeechSequence:
 	#Fetch the values for all wanted properties
 	newPropertyValues={}
@@ -395,14 +385,14 @@ def getObjectPropertiesSpeech(  # noqa: C901
 		newPropertyValues['placeholder']=obj.placeholder
 	# When speaking an object due to a focus change, the 'selected' state should not be reported if only one item is selected.
 	# This is because that one item will be the focused object, and saying selected is redundant.
-	# Rather, 'unselected' will be spoken for an unselected object if 1 or more items are selected. 
+	# Rather, 'unselected' will be spoken for an unselected object if 1 or more items are selected.
 	states=newPropertyValues.get('states')
 	if states is not None and reason == OutputReason.FOCUS:
 		if (
-			controlTypes.STATE_SELECTABLE in states 
+			controlTypes.STATE_SELECTABLE in states
 			and controlTypes.STATE_FOCUSABLE in states
 			and controlTypes.STATE_SELECTED in states
-			and obj.selectionContainer 
+			and obj.selectionContainer
 			and obj.selectionContainer.getSelectedItemsCount(2)==1
 		):
 			# We must copy the states set and  put it back in newPropertyValues otherwise mutating the original states set in-place will wrongly change the cached states.
@@ -429,8 +419,8 @@ def _getPlaceholderSpeechIfTextEmpty(
 		reason: OutputReason,
 ) -> Tuple[bool, SpeechSequence]:
 	""" Attempt to get speech for placeholder attribute if text for 'obj' is empty. Don't report the placeholder
-		value unless the text is empty, because it is confusing to hear the current value (presumably typed by the
-		user) *and* the placeholder. The placeholder should "disappear" once the user types a value.
+	value unless the text is empty, because it is confusing to hear the current value (presumably typed by the
+	user) *and* the placeholder. The placeholder should "disappear" once the user types a value.
 	@return: (True, SpeechSequence) if text for obj was considered empty and we attempted to get speech for the
 		placeholder value. (False, []) if text for obj was not considered empty.
 	"""
@@ -461,9 +451,9 @@ def speakObject(
 # Note: when working on getObjectSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getObjectSpeech(  # noqa: C901
-		obj,
-		reason: OutputReason = OutputReason.QUERY,
-		_prefixSpeechCommand: Optional[SpeechCommand] = None,
+								obj,
+								reason: OutputReason = OutputReason.QUERY,
+								_prefixSpeechCommand: Optional[SpeechCommand] = None,
 ):
 	role=obj.role
 	# Choose when we should report the content of this object's textInfo, rather than just the object's value
@@ -666,11 +656,11 @@ def getIndentationSpeech(indentation: str, formatConfig: Dict[str, bool]) -> Spe
 		quarterTones += (count*4 if raw[0]== "\t" else count)
 
 	speak = speechIndentConfig
-	if toneIndentConfig: 
+	if toneIndentConfig:
 		if quarterTones <= IDT_MAX_SPACES:
 			pitch = IDT_BASE_FREQUENCY*2**(quarterTones/24.0) #24 quarter tones per octave.
 			indentSequence.append(BeepCommand(pitch, IDT_TONE_DURATION))
-		else: 
+		else:
 			#we have more than 72 spaces (18 tabs), and must speak it since we don't want to hurt the users ears.
 			speak = True
 	if speak:
@@ -682,9 +672,9 @@ def getIndentationSpeech(indentation: str, formatConfig: Dict[str, bool]) -> Spe
 # Note: when working on speak, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def speak(  # noqa: C901
-		speechSequence: SpeechSequence,
-		symbolLevel: Optional[int] = None,
-		priority: Spri = Spri.NORMAL
+								speechSequence: SpeechSequence,
+								symbolLevel: Optional[int] = None,
+								priority: Spri = Spri.NORMAL
 ):
 	"""Speaks a sequence of text and speech commands
 	@param speechSequence: the sequence of text and L{SpeechCommand} objects to speak
@@ -785,7 +775,7 @@ def getPreselectedTextSpeech(
 	which they may unintentionally overwrite.
 
 	@remarks: Implemented using L{_getSelectionMessageSpeech}, which allows for
-		creating a speech sequence with an arbitrary attached message.
+					creating a speech sequence with an arbitrary attached message.
 	"""
 	return _getSelectionMessageSpeech(
 		# Translators: This is spoken to indicate that some text is already selected.
@@ -805,7 +795,7 @@ def speakTextSelected(
 	The method will speak the provided text with the word "selected" appended.
 
 	@remarks: Implemented using L{speakSelectionMessage}, which allows for
-		speaking text with an arbitrary attached message.
+					speaking text with an arbitrary attached message.
 	"""
 	# Translators: This is spoken to indicate what has just been selected.
 	# The text preceding 'selected' is intentional.
@@ -838,12 +828,12 @@ def _getSelectionMessageSpeech(
 # Note: when working on speakSelectionChange, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def speakSelectionChange(  # noqa: C901
-		oldInfo: textInfos.TextInfo,
-		newInfo: textInfos.TextInfo,
-		speakSelected: bool = True,
-		speakUnselected: bool = True,
-		generalize: bool = False,
-		priority: Optional[Spri] = None
+								oldInfo: textInfos.TextInfo,
+								newInfo: textInfos.TextInfo,
+								speakSelected: bool = True,
+								speakUnselected: bool = True,
+								generalize: bool = False,
+								priority: Optional[Spri] = None
 ):
 	"""Speaks a change in selection, either selected or unselected text.
 	@param oldInfo: a TextInfo instance representing what the selection was before
@@ -1055,14 +1045,14 @@ def speakTextInfo(
 # Note: when working on getTextInfoSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getTextInfoSpeech(  # noqa: C901
-		info: textInfos.TextInfo,
-		useCache: Union[bool, SpeakTextInfoState] = True,
-		formatConfig: Dict[str, bool] = None,
-		unit: Optional[str] = None,
-		reason: OutputReason = OutputReason.QUERY,
-		_prefixSpeechCommand: Optional[SpeechCommand] = None,
-		onlyInitialFields: bool = False,
-		suppressBlanks: bool = False
+								info: textInfos.TextInfo,
+								useCache: Union[bool, SpeakTextInfoState] = True,
+								formatConfig: Dict[str, bool] = None,
+								unit: Optional[str] = None,
+								reason: OutputReason = OutputReason.QUERY,
+								_prefixSpeechCommand: Optional[SpeechCommand] = None,
+								onlyInitialFields: bool = False,
+								suppressBlanks: bool = False
 ) -> Generator[SpeechSequence, None, bool]:
 	onlyCache = reason == OutputReason.ONLYCACHE
 	if isinstance(useCache,SpeakTextInfoState):
@@ -1299,7 +1289,7 @@ def getTextInfoSpeech(  # noqa: C901
 				if not inClickable and formatConfig['reportClickable']:
 					states=command.field.get('states')
 					if states and controlTypes.STATE_CLICKABLE in states:
-						# We have entered an outer most clickable or entered a new clickable after exiting a previous one 
+						# We have entered an outer most clickable or entered a new clickable after exiting a previous one
 						# Announce it if there is nothing else interesting about the field, but not if the user turned it off. 
 						presCat=command.field.getPresentationCategory(newControlFieldStack[0:],formatConfig,reason)
 						if not presCat or presCat is command.field.PRESCAT_LAYOUT:
@@ -1424,8 +1414,8 @@ def getTextInfoSpeech(  # noqa: C901
 # Note: when working on getPropertiesSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getPropertiesSpeech(  # noqa: C901
-		reason: OutputReason = OutputReason.QUERY,
-		**propertyValues
+								reason: OutputReason = OutputReason.QUERY,
+								**propertyValues
 ) -> SpeechSequence:
 	global oldTreeLevel, oldTableID, oldRowNumber, oldRowSpan, oldColumnNumber, oldColumnSpan
 	textList: List[str] = []
@@ -1516,7 +1506,7 @@ def getPropertiesSpeech(  # noqa: C901
 			rowHeaderText: Optional[str] = propertyValues.get("rowHeaderText")
 			if rowHeaderText:
 				textList.append(rowHeaderText)
-			if includeTableCellCoords and not cellCoordsText: 
+			if includeTableCellCoords and not cellCoordsText:
 				# Translators: Speaks current row number (example output: row 3).
 				rowNumberTranslation: str = _("row %s") % rowNumber
 				textList.append(rowNumberTranslation)
@@ -1607,12 +1597,12 @@ def getPropertiesSpeech(  # noqa: C901
 # Note: when working on getControlFieldSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getControlFieldSpeech(  # noqa: C901
-		attrs: textInfos.ControlField,
-		ancestorAttrs: List[textInfos.Field],
-		fieldType: str,
-		formatConfig: Optional[Dict[str, bool]] = None,
-		extraDetail: bool = False,
-		reason: Optional[OutputReason] = None
+								attrs: textInfos.ControlField,
+								ancestorAttrs: List[textInfos.Field],
+								fieldType: str,
+								formatConfig: Optional[Dict[str, bool]] = None,
+								extraDetail: bool = False,
+								reason: Optional[OutputReason] = None
 ) -> SpeechSequence:
 	if attrs.get('isHidden'):
 		return []
@@ -1741,8 +1731,8 @@ def getControlFieldSpeech(  # noqa: C901
 		tableSeq.extend(stateTextSequence)
 		tableSeq.extend(
 			getPropertiesSpeech(
-				_tableID=tableID, 
-				rowCount=rowCount, 
+				_tableID=tableID,
+				rowCount=rowCount,
 				columnCount=columnCount
 		))
 		tableSeq.extend(levelSequence)
@@ -1791,19 +1781,19 @@ def getControlFieldSpeech(  # noqa: C901
 	# General cases.
 	if ((
 		speakEntry and ((
-			speakContentFirst
-			and fieldType in ("end_relative", "end_inControlFieldStack")
+					speakContentFirst
+					and fieldType in ("end_relative", "end_inControlFieldStack")
+				)
+				or (
+					not speakContentFirst
+					and fieldType in ("start_addedToControlFieldStack", "start_relative")
+		))
 		)
 		or (
-			not speakContentFirst
-			and fieldType in ("start_addedToControlFieldStack", "start_relative")
-		))
-	)
-	or (
-		speakWithinForLine
-		and not speakContentFirst
-		and not extraDetail
-		and fieldType == "start_inControlFieldStack"
+			speakWithinForLine
+			and not speakContentFirst
+			and not extraDetail
+			and fieldType == "start_inControlFieldStack"
 	)):
 		out = []
 		if content and speakContentFirst:
@@ -1893,13 +1883,13 @@ def getControlFieldSpeech(  # noqa: C901
 # Note: when working on getFormatFieldSpeech, look for opportunities to simplify
 # and move logic out into smaller helper functions.
 def getFormatFieldSpeech(  # noqa: C901
-		attrs: textInfos.Field,
-		attrsCache: Optional[textInfos.Field] = None,
-		formatConfig: Optional[Dict[str, bool]] = None,
-		reason: Optional[OutputReason] = None,
-		unit: Optional[str] = None,
-		extraDetail: bool = False,
-		initialFormat: bool = False,
+								attrs: textInfos.Field,
+								attrsCache: Optional[textInfos.Field] = None,
+								formatConfig: Optional[Dict[str, bool]] = None,
+								reason: Optional[OutputReason] = None,
+								unit: Optional[str] = None,
+								extraDetail: bool = False,
+								initialFormat: bool = False,
 ) -> SpeechSequence:
 	if not formatConfig:
 		formatConfig=config.conf["documentFormatting"]
@@ -1933,7 +1923,7 @@ def getFormatFieldSpeech(  # noqa: C901
 		textColumnNumber=attrs.get("text-column-number")
 		oldTextColumnNumber=attrsCache.get("text-column-number") if attrsCache is not None else None
 
-		# Because we do not want to report the number of columns when a document is just opened and there is only 
+		# Because we do not want to report the number of columns when a document is just opened and there is only
 		# one column. This would be verbose, in the standard case.
 		# column number has changed, or the columnCount has changed
 		# but not if the columnCount is 1 or less and there is no old columnCount.
@@ -2096,11 +2086,11 @@ def getFormatFieldSpeech(  # noqa: C901
 				text = _("no revised %s") % oldRevision
 			textList.append(text)
 	if formatConfig["reportHighlight"]:
-		# marked text 
+		# marked text
 		marked=attrs.get("marked")
 		oldMarked=attrsCache.get("marked") if attrsCache is not None else None
 		if (marked or oldMarked is not None) and marked!=oldMarked:
-			# Translators: Reported when text is marked
+				# Translators: Reported when text is marked
 			text=(_("marked") if marked
 				# Translators: Reported when text is no longer marked
 				else _("not marked"))
@@ -2110,25 +2100,25 @@ def getFormatFieldSpeech(  # noqa: C901
 		strong=attrs.get("strong")
 		oldStrong=attrsCache.get("strong") if attrsCache is not None else None
 		if (strong or oldStrong is not None) and strong!=oldStrong:
-			# Translators: Reported when text is marked as strong (e.g. bold)
+				# Translators: Reported when text is marked as strong (e.g. bold)
 			text=(_("strong") if strong
-				# Translators: Reported when text is no longer marked as strong (e.g. bold) 
+				# Translators: Reported when text is no longer marked as strong (e.g. bold)
 				else _("not strong"))
 			textList.append(text)
-		# emphasised text 
+		# emphasised text
 		emphasised=attrs.get("emphasised")
 		oldEmphasised=attrsCache.get("emphasised") if attrsCache is not None else None
 		if (emphasised or oldEmphasised is not None) and emphasised!=oldEmphasised:
-			# Translators: Reported when text is marked as emphasised
+				# Translators: Reported when text is marked as emphasised
 			text=(_("emphasised") if emphasised
-				# Translators: Reported when text is no longer marked as emphasised 
+				# Translators: Reported when text is no longer marked as emphasised
 				else _("not emphasised"))
 			textList.append(text)
 	if  formatConfig["reportFontAttributes"]:
 		bold=attrs.get("bold")
 		oldBold=attrsCache.get("bold") if attrsCache is not None else None
 		if (bold or oldBold is not None) and bold!=oldBold:
-			# Translators: Reported when text is bolded.
+				# Translators: Reported when text is bolded.
 			text=(_("bold") if bold
 				# Translators: Reported when text is not bolded.
 				else _("no bold"))
@@ -2136,7 +2126,7 @@ def getFormatFieldSpeech(  # noqa: C901
 		italic=attrs.get("italic")
 		oldItalic=attrsCache.get("italic") if attrsCache is not None else None
 		if (italic or oldItalic is not None) and italic!=oldItalic:
-			# Translators: Reported when text is italicized.
+				# Translators: Reported when text is italicized.
 			text=(_("italic") if italic
 				# Translators: Reported when text is not italicized.
 				else _("no italic"))
@@ -2145,11 +2135,11 @@ def getFormatFieldSpeech(  # noqa: C901
 		oldStrikethrough=attrsCache.get("strikethrough") if attrsCache is not None else None
 		if (strikethrough or oldStrikethrough is not None) and strikethrough!=oldStrikethrough:
 			if strikethrough:
-				# Translators: Reported when text is formatted with double strikethrough.
-				# See http://en.wikipedia.org/wiki/Strikethrough
+					# Translators: Reported when text is formatted with double strikethrough.
+					# See http://en.wikipedia.org/wiki/Strikethrough
 				text=(_("double strikethrough") if strikethrough=="double"
-				# Translators: Reported when text is formatted with strikethrough.
-				# See http://en.wikipedia.org/wiki/Strikethrough
+					# Translators: Reported when text is formatted with strikethrough.
+					# See http://en.wikipedia.org/wiki/Strikethrough
 				else _("strikethrough"))
 			else:
 				# Translators: Reported when text is formatted without strikethrough.
@@ -2159,7 +2149,7 @@ def getFormatFieldSpeech(  # noqa: C901
 		underline=attrs.get("underline")
 		oldUnderline=attrsCache.get("underline") if attrsCache is not None else None
 		if (underline or oldUnderline is not None) and underline!=oldUnderline:
-			# Translators: Reported when text is underlined.
+				# Translators: Reported when text is underlined.
 			text=(_("underlined") if underline
 				# Translators: Reported when text is not underlined.
 				else _("not underlined"))
@@ -2209,7 +2199,7 @@ def getFormatFieldSpeech(  # noqa: C901
 				# See http://en.wikipedia.org/wiki/Typographic_alignment#Justified
 				text=_("align justify")
 			elif textAlign=="distribute":
-				# Translators: Reported when text is justified with character spacing (Japanese etc) 
+				# Translators: Reported when text is justified with character spacing (Japanese etc)
 				# See http://kohei.us/2010/01/21/distributed-text-justification/
 				text=_("align distributed")
 			else:
@@ -2230,7 +2220,7 @@ def getFormatFieldSpeech(  # noqa: C901
 				# Translators: Reported when text is vertically bottom-aligned.
 				text=_("vertical align bottom")
 			elif verticalAlign=="baseline":
-				# Translators: Reported when text is vertically aligned on the baseline. 
+				# Translators: Reported when text is vertically aligned on the baseline.
 				text=_("vertical align baseline")
 			elif verticalAlign=="justify":
 				# Translators: Reported when text is vertically justified.
@@ -2263,7 +2253,7 @@ def getFormatFieldSpeech(  # noqa: C901
 				_("no hanging indent"),
 			),
 			'first-line-indent':(
-				# Translators: the label for paragraph format first line indent 
+				# Translators: the label for paragraph format first line indent
 				_("first line indent"),
 				# Translators: the message when there is no paragraph format first line indent
 				_("no first line indent"),
@@ -2379,161 +2369,6 @@ def getTableInfoSpeech(
 	return textList
 
 
-def _yieldIfNonEmpty(seq: SpeechSequence):
-	"""Helper method to yield the sequence if it is not None or empty."""
-	if seq:
-		yield seq
-
-
-class SpeechWithoutPauses:
-	_pendingSpeechSequence: SpeechSequence
-	re_last_pause = re.compile(
-		r"^(.*(?<=[^\s.!?])[.!?][\"'”’)]?(?:\s+|$))(.*$)",
-		re.DOTALL | re.UNICODE
-	)
-
-	def __init__(
-			self,
-			speakFunc: Callable[[SpeechSequence], None]
-	):
-		"""
-		:param speakFunc: Function used by L{speakWithoutPauses} to speak. This will likely be speech.speak.
-		"""
-		self.speak = speakFunc
-		self.reset()
-
-	def reset(self):
-		self._pendingSpeechSequence = []
-
-	def speakWithoutPauses(
-			self,
-			speechSequence: Optional[SpeechSequence],
-			detectBreaks: bool = True
-	) -> bool:
-		"""
-		Speaks the speech sequences given over multiple calls,
-		only sending to the synth at acceptable phrase or sentence boundaries,
-		or when given None for the speech sequence.
-		@return: C{True} if something was actually spoken,
-			C{False} if only buffering occurred.
-		"""
-		speech = GeneratorWithReturn(self.getSpeechWithoutPauses(
-			speechSequence,
-			detectBreaks
-		))
-		for seq in speech:
-			self.speak(seq)
-		return speech.returnValue
-
-	def getSpeechWithoutPauses(  # noqa: C901
-			self,
-			speechSequence: Optional[SpeechSequence],
-			detectBreaks: bool = True
-	) -> Generator[SpeechSequence, None, bool]:
-		"""
-		Generate speech sequences over multiple calls,
-		only returning a speech sequence at acceptable phrase or sentence boundaries,
-		or when given None for the speech sequence.
-		@return: The speech sequence that can be spoken without pauses. The 'return' for this generator function,
-		is a bool which indicates whether this sequence should be considered valid speech. Use
-		L{GeneratorWithReturn} to retain the return value. A generator is used because the previous
-		implementation had several calls to speech, this approach replicates that.
-		"""
-		if speechSequence is not None:
-			logBadSequenceTypes(speechSequence)
-		# Break on all explicit break commands
-		if detectBreaks and speechSequence:
-			speech = GeneratorWithReturn(self._detectBreaksAndGetSpeech(speechSequence))
-			yield from speech
-			return speech.returnValue  # Don't fall through to flush / normal speech
-
-		if speechSequence is None:  # Requesting flush
-			pending = self._flushPendingSpeech()
-			yield from _yieldIfNonEmpty(pending)
-			return bool(pending)  # Don't fall through to handle normal speech
-
-		# Handling normal speech
-		speech = self._getSpeech(speechSequence)
-		yield from _yieldIfNonEmpty(speech)
-		return bool(speech)
-
-	def _detectBreaksAndGetSpeech(
-			self,
-			speechSequence: SpeechSequence
-	) -> Generator[SpeechSequence, None, bool]:
-		lastStartIndex = 0
-		sequenceLen = len(speechSequence)
-		gotValidSpeech = False
-		for index, item in enumerate(speechSequence):
-			if isinstance(item, EndUtteranceCommand):
-				if index > 0 and lastStartIndex < index:
-					subSequence = speechSequence[lastStartIndex:index]
-					yield from _yieldIfNonEmpty(
-						self._getSpeech(subSequence)
-					)
-				yield from _yieldIfNonEmpty(
-					self._flushPendingSpeech()
-				)
-				gotValidSpeech = True
-				lastStartIndex = index + 1
-		if lastStartIndex < sequenceLen:
-			subSequence = speechSequence[lastStartIndex:]
-			seq = self._getSpeech(subSequence)
-			gotValidSpeech = bool(seq)
-			yield from _yieldIfNonEmpty(seq)
-		return gotValidSpeech
-
-	def _flushPendingSpeech(self) -> SpeechSequence:
-		"""
-		@return: may be empty sequence
-		"""
-		# Place the last incomplete phrase in to finalSpeechSequence to be spoken now
-		pending = self._pendingSpeechSequence
-		self._pendingSpeechSequence = []
-		return pending
-
-	def _getSpeech(
-			self,
-			speechSequence: SpeechSequence
-	) -> SpeechSequence:
-		"""
-		@return: May be an empty sequence
-		"""
-		finalSpeechSequence: SpeechSequence = []  # To be spoken now
-		pendingSpeechSequence: speechSequence = []  # To be saved off for speaking later
-		# Scan the given speech and place all completed phrases in finalSpeechSequence to be spoken,
-		# And place the final incomplete phrase in pendingSpeechSequence
-		for index in range(len(speechSequence) - 1, -1, -1):
-			item = speechSequence[index]
-			if isinstance(item, str):
-				m = self.re_last_pause.match(item)
-				if m:
-					before, after = m.groups()
-					if after:
-						pendingSpeechSequence.append(after)
-					if before:
-						finalSpeechSequence.extend(self._flushPendingSpeech())
-						finalSpeechSequence.extend(speechSequence[0:index])
-						finalSpeechSequence.append(before)
-						# Apply the last language change to the pending sequence.
-						# This will need to be done for any other speech change commands introduced in future.
-						for changeIndex in range(index - 1, -1, -1):
-							change = speechSequence[changeIndex]
-							if not isinstance(change, LangChangeCommand):
-								continue
-							pendingSpeechSequence.append(change)
-							break
-						break
-				else:
-					pendingSpeechSequence.append(item)
-			else:
-				pendingSpeechSequence.append(item)
-		if pendingSpeechSequence:
-			pendingSpeechSequence.reverse()
-			self._pendingSpeechSequence.extend(pendingSpeechSequence)
-		return finalSpeechSequence
-
-
 #: The singleton _SpeechManager instance used for speech functions.
 #: @type: L{manager.SpeechManager}
 _manager = manager.SpeechManager()
@@ -2541,8 +2376,8 @@ _manager = manager.SpeechManager()
 
 def clearTypedWordBuffer() -> None:
 	"""
-	Forgets any word currently being built up with typed characters for speaking. 
-	This should be called when the user's context changes such that they could no longer 
+	Forgets any word currently being built up with typed characters for speaking.
+	This should be called when the user's context changes such that they could no longer
 	complete the word (such as a focus change or choosing to move the caret).
 	"""
 	global curWordChars
