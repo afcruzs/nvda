@@ -89,6 +89,7 @@ class ControlField(Field):
 			(role == controlTypes.ROLE_LINK and not formatConfig["reportLinks"])
 			or (role == controlTypes.ROLE_GRAPHIC and not formatConfig["reportGraphics"])
 			or (role == controlTypes.ROLE_HEADING and not formatConfig["reportHeadings"])
+			or (role == controlTypes.ROLE_FIGURE and not formatConfig["reportFigures"])
 			or (role == controlTypes.ROLE_BLOCKQUOTE and not formatConfig["reportBlockQuotes"])
 			or (role == controlTypes.ROLE_GROUPING and (not name or not formatConfig["reportGroupings"]))
 			or (role in (controlTypes.ROLE_TABLE, controlTypes.ROLE_TABLECELL, controlTypes.ROLE_TABLEROWHEADER, controlTypes.ROLE_TABLECOLUMNHEADER) and not formatConfig["reportTables"])

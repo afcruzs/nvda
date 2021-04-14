@@ -2356,6 +2356,11 @@ class DocumentFormattingPanel(SettingsPanel):
 
 		# Translators: This is the label for a checkbox in the
 		# document formatting settings panel.
+		self.figuresCheckBox = elementsGroup.addItem(wx.CheckBox(elementsGroupBox, label=_("&Figures")))
+		self.figuresCheckBox.SetValue(config.conf["documentFormatting"]["reportFigures"])
+
+		# Translators: This is the label for a checkbox in the
+		# document formatting settings panel.
 		self.listsCheckBox = elementsGroup.addItem(wx.CheckBox(elementsGroupBox, label=_("&Lists")))
 		self.listsCheckBox.SetValue(config.conf["documentFormatting"]["reportLists"])
 
@@ -2437,6 +2442,7 @@ class DocumentFormattingPanel(SettingsPanel):
 		config.conf["documentFormatting"]["reportBorderColor"] = (choice == 2)
 		config.conf["documentFormatting"]["reportLinks"]=self.linksCheckBox.IsChecked()
 		config.conf["documentFormatting"]["reportGraphics"] = self.graphicsCheckBox.IsChecked()
+		config.conf["documentFormatting"]["reportFigures"] = self.graphicsCheckBox.IsChecked()
 		config.conf["documentFormatting"]["reportHeadings"]=self.headingsCheckBox.IsChecked()
 		config.conf["documentFormatting"]["reportLists"]=self.listsCheckBox.IsChecked()
 		config.conf["documentFormatting"]["reportBlockQuotes"]=self.blockQuotesCheckBox.IsChecked()

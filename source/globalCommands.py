@@ -730,6 +730,22 @@ class GlobalCommands(ScriptableObject):
 			state = _("report graphics on")
 			config.conf["documentFormatting"]["reportGraphics"] = True
 		ui.message(state)
+	
+	@script(
+		# Translators: Input help mode message for toggle report graphics command.
+		description=_("Toggles on and off the reporting of figures"),
+		category=SCRCAT_DOCUMENTFORMATTING
+	)
+	def script_toggleReportFigures(self, gesture):
+		if config.conf["documentFormatting"]["reportFigures"]:
+			# Translators: The message announced when toggling the report graphics document formatting setting.
+			state = _("report figures off")
+			config.conf["documentFormatting"]["reportFigures"] = False
+		else:
+			# Translators: The message announced when toggling the report graphics document formatting setting.
+			state = _("report figures on")
+			config.conf["documentFormatting"]["reportFigures"] = True
+		ui.message(state)	
 
 	@script(
 		# Translators: Input help mode message for toggle report comments command.
